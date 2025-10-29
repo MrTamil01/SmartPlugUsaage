@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "frontend/vite.config.js",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/dist/$1"
+    }
+  ],
+  "env": {
+    "MONGO_URI": "your_mongodb_connection_string",
+    "JWT_SECRET": "your_secret_key",
+    "VITE_REACT_APP_BACKEND_BASEURL": "https://your-vercel-backend-domain.vercel.app",
+    "VITE_REACT_APP_FRONTEND_BASEURL": "https://your-vercel-frontend-domain.vercel.app"
+  }
+}
