@@ -93,11 +93,8 @@ const startServer = async () => {
   app.use('/api/user', require('./routes/user'));
   app.use('/api/device', require('./routes/device'));
 
-  const PORT = process.env.PORT || 3000;
+  module.exports = app;
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Server running at http://0.0.0.0:${PORT}`);
-  });
 };
 
 startServer();
