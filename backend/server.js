@@ -1,19 +1,30 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const app = express();
 const connectDB = require('./config/db');
 const User = require('./models/User');
 const Reading = require('./models/Reading');
 const Appliance = require('./models/Appliance');
 
-let lastData = { status: "No data yet" };
+const app = express();
+app.use(express.json());
 
-// Connect to database and create default admin
-const startServer = async () => {
-  await connectDB();
+// ✅ CORS
+app.use(
+  cors({
+    origin: [
+      'http://localhost:5173',
+      'https://smart-plug-usaage.vercel.app'
+    ],
+    credentials: true,
+  })
+);
 
-  // Create default admin user if not exists
+// ✅ Connect DB (runs once per serverless cold start)
+connectDB();
+
+// ✅ Create default admin (only runs once per cold start)
+(async () => {
   try {
     const adminExists = await User.findOne({ username: 'admin' });
     if (!adminExists) {
@@ -22,80 +33,58 @@ const startServer = async () => {
         password: 'admin123',
         name: 'Admin User',
         role: 'admin',
-        devices: []
+        devices: [],
       });
       await admin.save();
-      console.log('Default admin user created');
+      console.log('Default admin created ✅');
     }
   } catch (err) {
-    console.error('Error creating default admin:', err);
+    console.error('Error creating default admin:', err.message);
   }
+})();
 
-  // Middleware
-  app.use(cors({
-    origin: ['http://localhost:5173', 'http://10.37.212.245:5173', 'http://localhost:3000', 'http://10.37.212.245:3000','smart-plug-usaage.vercel.app'],
-    credentials: true
-  }));
-  app.use(express.json());
+// ✅ IoT route
+let lastData = { status: "No data yet" };
 
-  // IoT Device Endpoints
-  // POST endpoint to receive data
-  app.post('/pzem', async (req, res) => {
-    try {
-      const { device_id, voltage, current, power, frequency, power_factor } = req.body;
-
-      // Validate required fields
-      if (!device_id || voltage === undefined || current === undefined || power === undefined || frequency === undefined || power_factor === undefined) {
-        return res.status(400).json({ message: 'All fields are required' });
-      }
-
-      // Check if device exists
-      const appliance = await Appliance.findOne({ id: device_id });
-      if (!appliance) {
-        return res.status(404).json({ message: 'Device not found' });
-      }
-
-      const newReading = new Reading({
-        device_id,
-        timestamp: new Date(),
-        voltage: parseFloat(voltage),
-        current: parseFloat(current),
-        power: parseFloat(power),
-        energy: 0, // Default since not provided
-        frequency: parseFloat(frequency),
-        power_factor: parseFloat(power_factor),
-        status: 'active', // Default status
-      });
-
-      await newReading.save();
-
-      // Increment appliance usage with power from the reading
-      appliance.usage += parseFloat(power);
-      await appliance.save();
-      console.log(`Updated appliance ${device_id} usage to: ${appliance.usage}`);
-
-      lastData = req.body;
-      console.log("Received and stored:", lastData);
-      res.json({ status: "ok", received: lastData });
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server error');
+app.post('/pzem', async (req, res) => {
+  try {
+    const { device_id, voltage, current, power, frequency, power_factor } = req.body;
+    if (!device_id || voltage === undefined) {
+      return res.status(400).json({ message: 'All fields required' });
     }
-  });
 
-  // GET endpoint to view last data
-  app.get('/pzem', (req, res) => {
-    res.json(lastData);
-  });
+    const appliance = await Appliance.findOne({ id: device_id });
+    if (!appliance) return res.status(404).json({ message: 'Device not found' });
 
-  // Routes
-  app.use('/api/auth', require('./routes/auth'));
-  app.use('/api/user', require('./routes/user'));
-  app.use('/api/device', require('./routes/device'));
+    const newReading = new Reading({
+      device_id,
+      timestamp: new Date(),
+      voltage,
+      current,
+      power,
+      frequency,
+      power_factor,
+      status: 'active',
+    });
+    await newReading.save();
 
-  module.exports = app;
+    appliance.usage += parseFloat(power);
+    await appliance.save();
 
-};
+    lastData = req.body;
+    res.json({ status: 'ok', received: lastData });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
 
-startServer();
+app.get('/pzem', (req, res) => res.json(lastData));
 
+// ✅ Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/user', require('./routes/user'));
+app.use('/api/device', require('./routes/device'));
+
+
+module.exports = app;
