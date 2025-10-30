@@ -13,7 +13,8 @@ let lastData = { status: "No data yet" };
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://smart-plug-usaage.vercel.app'
+    'https://smart-plug-usaage.vercel.app',
+    'https://smartplug-backend.onrender.com'
   ],
   credentials: true
 }));
