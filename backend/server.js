@@ -14,7 +14,8 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://smart-plug-usaage.vercel.app',
-    'https://smartplug-backend.onrender.com'
+    'https://smartplug-backend.onrender.com',
+    'https://smart-plug-usaage-csxr-git-main-mrtamil01s-projects.vercel.app'
   ],
   credentials: true
 }));
