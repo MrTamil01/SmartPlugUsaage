@@ -9,27 +9,44 @@ const Appliance = require('./models/Appliance');
 const app = express();
 let lastData = { status: "No data yet" };
 
-// Middleware
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://smart-plug-usaage.vercel.app',
-    'https://smartplug-backend.onrender.com',
-    'https://smart-plug-usaage-csxr-git-main-mrtamil01s-projects.vercel.app'
-  ],
-  credentials: true
-}));
+// ✅ Allowed frontend origins
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://smart-plug-usaage.vercel.app',
+  'https://smartplugusaage.onrender.com',
+  'https://smart-plug-usaage-csxr-git-main-mrtamil01s-projects.vercel.app'
+];
+
+// ✅ Middleware (CORS → JSON → routes)
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // allow server-to-server or Postman
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        console.warn(`❌ CORS blocked for origin: ${origin}`);
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
-// ✅ Root route for Render health check
+// ✅ Health check route (for Render uptime)
 app.get('/', (req, res) => {
   res.send('✅ Smart Plug Backend Running Successfully');
 });
 
-// IoT Device Endpoints
+// ✅ IoT Device Endpoints
 app.post('/pzem', async (req, res) => {
   try {
     const { device_id, voltage, current, power, frequency, power_factor } = req.body;
+
     if (!device_id || voltage === undefined || current === undefined || power === undefined || frequency === undefined || power_factor === undefined) {
       return res.status(400).json({ message: 'All fields are required' });
     }
@@ -54,10 +71,10 @@ app.post('/pzem', async (req, res) => {
     await appliance.save();
 
     lastData = req.body;
-    console.log('Received:', lastData);
+    console.log('📡 Received:', lastData);
     res.json({ status: 'ok', received: lastData });
   } catch (err) {
-    console.error(err.message);
+    console.error('❌ /pzem error:', err.message);
     res.status(500).send('Server error');
   }
 });
@@ -66,7 +83,7 @@ app.get('/pzem', (req, res) => {
   res.json(lastData);
 });
 
-// Routes
+// ✅ Main API Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/device', require('./routes/device'));
@@ -75,7 +92,7 @@ app.use('/api/device', require('./routes/device'));
 const startServer = async () => {
   try {
     await connectDB();
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 10000;
     app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
   } catch (err) {
     console.error('❌ Server startup failed:', err.message);
